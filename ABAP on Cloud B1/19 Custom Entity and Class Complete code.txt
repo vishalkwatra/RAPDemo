@@ -1,0 +1,175 @@
+@EndUserText.label: 'Source of WebAPI'
+@ObjectModel.query.implementedBy: 'ABAP:ZCL_ATS_00_CUSTOM_Q'
+@UI.headerInfo: {
+    typeName: 'SalesDiscount',
+    typeNamePlural: 'SalesDiscounts'
+}
+define custom entity ZATS_00_CUSTOM_ENTITY 
+{
+@UI.facet: [{ id: 'SalesOrder', purpose: #STANDARD , type: #IDENTIFICATION_REFERENCE,
+              label: 'SalesOrder', position: 10 }]
+ @UI.selectionField: [{position: 10 }]
+ @UI.lineItem: [{position: 10 }]
+ @UI.identification: [{position: 10 }]             
+ key SalesOrderId : abap.char( 10 ) ;
+ @UI.selectionField: [{position: 20 }]
+ @UI.lineItem: [{position: 20 }]
+ @UI.identification: [{position: 20 }]
+  
+ CustomerId : abap.char( 10 ) ;
+ @UI.lineItem: [{position: 30 }]
+ @UI.identification: [{position: 30 }] 
+ CurrencyCode : abap.char( 5 ) ; 
+ @UI.lineItem: [{position: 40 }]
+ @UI.identification: [{position: 40 }]
+ GrossAmount : abap.dec( 15, 2 ) ; 
+ @UI.lineItem: [{position: 50 }]
+ @UI.identification: [{position: 50 }]
+ DiscountPct  : abap.dec(3,1);
+ @UI.lineItem: [{position: 10 }]
+ @UI.identification: [{position: 10 }]
+ DiscountAbs  : abap.dec(16,2);
+ @UI.lineItem: [{position: 60 }]
+ @UI.identification: [{position: 60 }]
+ //Custom field which will be calculated At Runtime
+ TotalPriceWithDiscount: abap.dec(17,3);
+ @UI.lineItem: [{position: 70 }]
+ @UI.identification: [{position: 70 }]
+ CalculatedETag : abap.string(0);
+   
+}
+
+
+CLASS zcl_ats_00_s4_proxy DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    class-METHODS : get_client_proxy
+    RETURNING VALUE(ro_client_proxy) TYPE REF TO /iwbep/if_cp_client_proxy.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zcl_ats_00_s4_proxy IMPLEMENTATION.
+  METHOD get_client_proxy.
+    "Create an http client proxy object based on the connection settings
+    data(lo_http_client) =
+    cl_web_http_client_manager=>create_by_http_destination(
+        cl_http_destination_provider=>create_by_cloud_destination(
+          i_name                  = 'SalesOrderDest'
+          i_service_instance_name = 'MYSERVICE'
+*          i_authn_mode            = if_a4c_cp_service=>user_propagation
+        )
+*        CATCH cx_http_dest_provider_error.
+
+     ).
+
+     ro_client_proxy =  cl_web_odata_client_factory=>create_v2_remote_proxy(
+                          iv_service_definition_name = 'ZSALESORDERHEADERSD7F3D11500'
+                          io_http_client             = lo_http_client
+                          iv_relative_service_root   = '/sap/opu/odata/sap/ZANUBHAV_SRV'
+                        ).
+*                        CATCH /iwbep/cx_gateway.
+*                        CATCH cx_web_http_client_error.
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+
+CLASS zcl_ats_00_custom_q DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    INTERFACES if_rap_query_provider.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zcl_ats_00_custom_q IMPLEMENTATION.
+  METHOD if_rap_query_provider~select.
+
+    "STEP1 : CONNECTING TO OUR S/4HANA SYSTEM TO FETCH ORDER DATA
+    "1.1 create a connection to S/4HANA system - create an HTTP proxy
+    "    pre-requisite: 1. Destination to S/4 2. Comm Scenario
+    data(lo_client_proxy) = zcl_ats_00_s4_proxy=>get_client_proxy(  ).
+    data(lo_read_request) = lo_client_proxy->create_resource_for_entity_set(
+                                     iv_entity_set_name = 'ZSALESORDERHEADERSD7F3D11500' )->create_request_for_read(  ).
+    "1.2 handle the code for pagination
+    data(ls_pagination) = io_request->get_paging( ).
+    if ls_pagination->get_offset(  ) >= 0.
+        lo_read_request->set_skip(  ls_pagination->get_offset(  ) ).
+    endif.
+    if ls_pagination->get_page_size( ) <> if_rap_query_paging=>page_size_unlimited.
+        lo_read_request->set_top( iv_top = ls_pagination->get_page_size(  ) ).
+    else.
+        lo_read_request->set_top( iv_top = 15 ).
+    endif.
+    "1.3 fire exeucte to call S/4API
+    data(lo_response) = lo_read_request->execute(  ).
+
+    if io_request->is_total_numb_of_rec_requested( ).
+        io_response->set_total_number_of_records( iv_total_number_of_records = lo_response->get_count(  ) ).
+    endif.
+
+    "1.4 Receive data from S/4 in an internal table
+    "STEP 2: CALL YOUR CUSTOM DB TABLE TO LOAD DISCOUNT DATA
+    "STEP3: CALCULATE THE DISCOUNTED PRICE
+    "3.1 : loading corresponding SO discounts from discount itab
+    "3.2 : perform calculation and merge data
+    "3.3 : prepare data result in form of custom entity o/p
+    "3.4 : all the cal for runtime fields are done
+    "STEP4 : use response object to send the data out
+    if io_request->is_data_requested(  ).
+
+        data: lt_s4 type STANDARD TABLE OF ZSALESORDERHEADERSD7F3D11500,
+              lt_return type STANDARD TABLE OF ZATS_00_CUSTOM_ENTITY,
+              lt_db_aoc type STANDARD TABLE OF zats_00_sales_d.
+
+        lo_response->get_business_data(
+          IMPORTING
+            et_business_data = lt_s4
+        ).
+
+        if lt_s4 is not initial.
+
+            lt_return = CORRESPONDING #( lt_s4 mapping SalesOrderId = SalesOrderId ).
+
+            select * from zats_00_sales_d  for all ENTRIES IN @lt_return
+                    where order_id = @lt_return-salesorderid into table @lt_db_aoc.
+
+            loop at lt_return assigning field-symbol(<fs>).
+
+                if ( line_exists( lt_db_aoc[ order_id = <fs>-salesorderid ] ) ).
+
+                    <fs>-discountpct = lt_db_aoc[ order_id = <fs>-salesorderid ]-discount_pct.
+                    <fs>-discountabs = lt_db_aoc[ order_id = <fs>-salesorderid ]-discount_abs.
+                    <fs>-totalpricewithdiscount = <fs>-grossamount *
+                    ( 1 - <fs>-discountpct / 100 ) - <fs>-discountabs.
+                    <fs>-calculatedetag = <fs>-calculatedetag && '-' && lt_db_aoc[ order_id = <fs>-salesorderid ]-lastchangedat.
+
+                endif.
+
+            endloop.
+
+            io_response->set_data( it_data = lt_return ).
+*            CATCH cx_rap_query_response_set_twic.
+
+        endif.
+
+    endif.
+
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+

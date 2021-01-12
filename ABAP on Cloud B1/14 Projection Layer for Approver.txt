@@ -1,0 +1,439 @@
+@EndUserText.label: 'processor Travel projection'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@UI: {
+    headerInfo: {
+        typeName: 'Travel',
+        typeNamePlural: 'Travels',
+        title: { type: #STANDARD, 
+        value: 'TravelId' }
+    }
+}
+@Search.searchable: true
+define root view entity ZATS_00_M_PROC_TRAVEL as projection on ZATS_00_M_TRAVEL {
+    //ZATS_00_M_TRAVEL
+    
+    @UI.facet: [{ id: 'Travel',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Travel',
+                  position: 10 },
+                { id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking',
+                  position: 20,
+                  targetElement: '_Booking'
+                }  
+                  
+                  ]
+    
+    @UI: { lineItem: [{ position: 10, importance: #HIGH }],
+           identification: [{ position: 10, label: 'Travel Id [1,......,999999]' }] }
+    @Search.defaultSearchElement: true
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20, label: 'Agency Id' }],
+           selectionField: [{ position: 20 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Agency', element: 'AgencyID' } }]
+    @ObjectModel.text.element: ['AgencyName']           
+    agency_id as AgencyID,
+    _Agency.AgencyName as AgencyName,
+     @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30, label: 'Customer Id' }],
+           selectionField: [{ position: 30 }] }
+     @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    @ObjectModel.text.element: ['CustomerName']
+    customer_id as CustomerID,
+    _Customer.LastName as CustomerName,
+     @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }],
+           selectionField: [{ position: 40 }] }
+    begin_date as BeginDate,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }],
+           selectionField: [{ position: 50 }] }
+    end_date as EndDate,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }],
+           selectionField: [{ position: 60 }] }
+    booking_fee as BookingFee,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }],
+           selectionField: [{ position: 70 }] }
+    total_price as TotalPrice,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }],
+           selectionField: [{ position: 80 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: 'I_Currency', element: 'Currency' } }]
+    
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }],
+           selectionField: [{ position: 90 }] }
+    description as Description,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }],
+           selectionField: [{ position: 100 }] }
+    overall_status as Status,
+    @UI.hidden: true
+    last_changed_at as ChangedAt,
+    /* Associations */
+    //ZATS_00_M_TRAVEL
+    _Agency,
+    _Booking : redirected to composition child ZATS_00_M_PROC_BOOKING,
+    _Currency,
+    _Customer
+}
+
+
+@EndUserText.label: 'Processor Scenario for Booking'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@UI.headerInfo: {
+    typeName: 'Booking',
+    typeNamePlural: 'Bookings',
+    title: {type: #STANDARD, value: 'BookingID'}
+}
+
+define view entity ZATS_00_M_PROC_BOOKING as projection on ZATS_00_M_BOOKING {
+    //ZATS_00_M_BOOKING
+    @UI.facet: [{ id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Booking',     
+                  position: 10  
+                    
+                },
+                { id: 'BookingSupplement',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking Supplement',
+                  position: 20,
+                  targetElement: '_BooSupplement'
+                }  ]
+    @Search.defaultSearchElement: true   
+    @UI.identification: [{position: 10 }]           
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20 }] }
+    key booking_id as BookingID,
+    @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30 }] }
+    booking_date as BookingDate,
+    @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    @ObjectModel.text.element: ['CustomerName']
+    customer_id as CustomerID,
+    _Customer.LastName as CustomerName,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Carrier', element: 'AirlineID' } }]
+    @ObjectModel.text.element: ['CarrierName']       
+    carrier_id as CarrierId,
+    _Carrier.Name as CarrierName,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Flight', element: 'ConnectionID' },
+    additionalBinding: [{ localElement: 'FlightDate' , element: 'FlightDate'  },
+    { localElement: 'CarrierId' , element: 'AirlineID'  },
+            { localElement: 'FlightPrice' , element: 'Price'  },
+            { localElement: 'CurrencyCode' , element: 'CurrencyCode'  }
+    ] }]
+      
+    connection_id as ConnectionId,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Flight', element: 'FlightDate' } }]
+      
+    flight_date as FlightDate,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }] }
+    flight_price as FlightPrice,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }] }
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }] }
+    booking_status as BookingStatus,
+    last_changed_at as LastChangedAt,
+    /* Associations */
+    //ZATS_00_M_BOOKING
+    _BooSupplement: redirected to composition child ZATS_00_M_PROC_BSUPPL,
+    _Carrier,
+    _Connection,
+    _Customer,
+    _Travel: redirected to parent ZATS_00_M_PROC_TRAVEL
+}
+
+
+
+@EndUserText.label: 'Booking Suppliment Processor Projection View'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+@UI.headerInfo: {
+        typeName: 'Booking Supplement',
+        typeNamePlural: 'Booking Supplements',
+        title: {type: #STANDARD, label: 'Booking Supplement', 
+                value: 'SupplementID'}
+}
+
+define view entity ZATS_00_M_PROC_BSUPPL as projection on ZATS_00_M_BOOKSUPPL {
+    //ZATS_00_M_BOOKSUPPL
+    @UI.facet: [ { id:              'BookingSupplement',
+                   purpose:         #STANDARD,
+                   type:            #IDENTIFICATION_REFERENCE,
+                   label:           'Booking Supplement',
+                   position:        10 }  ]
+    
+    key travel_id as TravelID,
+    key booking_id as BookingID,
+    @UI: { lineItem: [{ position: 10, importance: #HIGH }],
+           identification: [{ position: 10 }] }
+    key booking_supplement_id as SupplementID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20 }] }
+    supplement_id as SupplimentNo,
+    @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30 }] }
+    price as Price,
+    currency_code as CurrencyCode,
+    @UI.hidden: true
+    last_changed_at as LastChangedAt,
+    /* Associations */
+    //ZATS_00_M_BOOKSUPPL
+    _Booking : redirected to parent ZATS_00_M_PROC_BOOKING,
+    _Product,
+    _SupplementText
+}
+managed; // implementation in class zbp_ats_00_m_travel unique;
+
+define behavior for ZATS_00_M_TRAVEL alias Travel
+persistent table /DMO/TRAVEL_M
+lock master
+//authorization master ( instance )
+etag master last_changed_at
+{
+  field ( readonly ) last_changed_at, last_changed_by, created_at, created_by;
+  field ( mandatory ) agency_id, overall_status, booking_fee, currency_code;
+  create;
+  update;
+  delete;
+  association _Booking { create; }
+}
+
+define behavior for ZATS_00_M_BOOKING alias Booking
+persistent table /DMO/BOOKING_M
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  field ( mandatory ) carrier_id, connection_id, flight_date;
+
+  update;
+  delete;
+  association _BooSupplement { create; }
+}
+
+define behavior for ZATS_00_M_BOOKSUPPL alias BookSuppl
+persistent table /dmo/booksuppl_m
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  field (mandatory) supplement_id, price;
+  update;
+  delete;
+}
+
+projection;
+
+define behavior for ZATS_00_M_PROC_TRAVEL alias Travel
+{
+  field ( mandatory ) BeginDate, EndDate, CustomerID;
+  use create;
+  use update;
+  use delete;
+  use association _BOOKING { create; }
+}
+
+define behavior for ZATS_00_M_PROC_BOOKING alias Booking
+{
+    use update;
+    use association _BooSupplement{ create; }
+}
+
+define behavior for ZATS_00_M_PROC_BSUPPL alias BookingSuppl
+{
+    use update;
+}
+
+
+@EndUserText.label: 'Approver projection for travel'
+@AccessControl.authorizationCheck: #CHECK
+define root view entity ZATS_00_M_APPROVE_TRAVEL as projection on ZATS_00_M_TRAVEL {
+    //ZATS_00_M_TRAVEL
+    
+    @UI.facet: [{ id: 'Travel',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Travel',
+                  position: 10 },
+                { id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking',
+                  position: 20,
+                  targetElement: '_Booking'
+                }  
+                  
+                  ]
+    
+    @UI: { lineItem: [{ position: 10, importance: #HIGH }],
+           identification: [{ position: 10, label: 'Travel Id [1,......,999999]' }] }
+    @Search.defaultSearchElement: true
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20, label: 'Agency Id' }],
+           selectionField: [{ position: 20 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Agency', element: 'AgencyID' } }]
+    @ObjectModel.text.element: ['AgencyName']           
+    agency_id as AgencyID,
+    _Agency.AgencyName as AgencyName,
+     @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30, label: 'Customer Id' }],
+           selectionField: [{ position: 30 }] }
+     @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    @ObjectModel.text.element: ['CustomerName']
+    customer_id as CustomerID,
+    _Customer.LastName as CustomerName,
+     @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }],
+           selectionField: [{ position: 40 }] }
+    begin_date as BeginDate,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }],
+           selectionField: [{ position: 50 }] }
+    end_date as EndDate,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }],
+           selectionField: [{ position: 60 }] }
+    booking_fee as BookingFee,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }],
+           selectionField: [{ position: 70 }] }
+    total_price as TotalPrice,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }],
+           selectionField: [{ position: 80 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: 'I_Currency', element: 'Currency' } }]
+    
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }],
+           selectionField: [{ position: 90 }] }
+    description as Description,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }],
+           selectionField: [{ position: 100 }] }
+    overall_status as Status,
+    @UI.hidden: true
+    last_changed_at as ChangedAt,
+    /* Associations */
+    //ZATS_00_M_TRAVEL
+    _Agency,
+    _Booking : redirected to composition child ZATS_00_M_APPROVE_BOOKING,
+    _Currency,
+    _Customer
+}
+
+
+
+@EndUserText.label: 'Approver projection for booking'
+@AccessControl.authorizationCheck: #CHECK
+define view entity ZATS_00_M_APPROVE_BOOKING as projection on ZATS_00_M_BOOKING {
+    //ZATS_00_M_BOOKING
+    @UI.facet: [{ id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Booking',     
+                  position: 10  
+                    
+                } ]
+    @Search.defaultSearchElement: true   
+    @UI.identification: [{position: 10 }]           
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20 }] }
+    key booking_id as BookingID,
+    @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30 }] }
+    booking_date as BookingDate,
+    @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    @ObjectModel.text.element: ['CustomerName']
+    customer_id as CustomerID,
+    _Customer.LastName as CustomerName,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Carrier', element: 'AirlineID' } }]
+    @ObjectModel.text.element: ['CarrierName']       
+    carrier_id as CarrierId,
+    _Carrier.Name as CarrierName,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Flight', element: 'ConnectionID' },
+    additionalBinding: [{ localElement: 'FlightDate' , element: 'FlightDate'  },
+    { localElement: 'CarrierId' , element: 'AirlineID'  },
+            { localElement: 'FlightPrice' , element: 'Price'  },
+            { localElement: 'CurrencyCode' , element: 'CurrencyCode'  }
+    ] }]
+      
+    connection_id as ConnectionId,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Flight', element: 'FlightDate' } }]
+      
+    flight_date as FlightDate,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }] }
+    flight_price as FlightPrice,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }] }
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }] }
+    booking_status as BookingStatus,
+    last_changed_at as LastChangedAt,
+    /* Associations */
+    //ZATS_00_M_BOOKING
+    _Carrier,
+    _Connection,
+    _Customer,
+    _Travel: redirected to parent ZATS_00_M_APPROVE_TRAVEL
+}
+
+
+
+projection;
+
+define behavior for ZATS_00_M_APPROVE_TRAVEL alias Travel
+{
+  field (readonly) TravelID,  CustomerID,  BeginDate, EndDate,
+                    TotalPrice;
+  use update;
+}
+
+define behavior for ZATS_00_M_APPROVE_BOOKING alias Booking
+{
+  use update;
+}
+
+@EndUserText.label: 'Service Definition for Travel Approver Managed'
+define service ZATS_00_SD_APPROVER {
+  expose ZATS_00_M_APPROVE_TRAVEL as Travel;
+  expose ZATS_00_M_APPROVE_BOOKING as Booking;
+  expose /DMO/I_Customer as Customer;
+  expose /DMO/I_Agency as Agency;
+  expose I_Currency as Currency;
+}

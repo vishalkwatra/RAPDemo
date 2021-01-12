@@ -1,0 +1,307 @@
+CLASS zrecap_new_abap_syntax DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    types: begin of ty_sales,
+            customer type c length 10,
+            amount type int4,
+            country type land1,
+           end of ty_sales,
+           begin of ty_sales_new,
+            shiptoparty type c length 10,
+            gross_val type int4,
+            ctry type land1,
+            control type c LENGTH 1,
+           end of ty_sales_new,
+           begin of ty_invoice,
+            customer type c length 10,
+            amount type int4,
+            country type land1,
+           end of ty_invoice,
+           begin of ty_group,
+            company type c length 10,
+            total type int4,
+           end of ty_group,
+           tt_sales type standard table of ty_sales,
+           tt_group type STANDARD TABLE OF ty_group,
+           tt_invoice type SORTED TABLE OF ty_invoice with UNIQUE KEY customer,
+           tt_sales_new type standard table of ty_sales_new.
+    data: tab_sales type tt_sales,
+          wa_sales type ty_sales,
+          tab_sales_new type tt_sales_new,
+          wa_sales_new type ty_sales,
+          tab_invoice type tt_invoice,
+          wa_invoice type ty_sales,
+          tab_group type tt_group,
+          wa_group type ty_group.
+    INTERFACES if_oo_adt_classrun.
+    methods: fill_table,
+             print_data IMPORTING out TYPE REF TO if_oo_adt_classrun_out,
+             learn_corresponding,
+             learn_read_key IMPORTING out TYPE REF TO if_oo_adt_classrun_out,
+             grouper,
+             new_loop .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+CLASS zrecap_new_abap_syntax IMPLEMENTATION.
+  METHOD if_oo_adt_classrun~main.
+
+    me->fill_table( ).
+*    me->learn_corresponding(  ).
+*    me->learn_read_key( out = out ).
+    me->grouper(  ).
+    me->print_data( out = out ).
+  ENDMETHOD.
+
+  METHOD fill_table.
+*    wa_sales-customer = 'IBM'.
+*    wa_sales-amount = 5000.
+*    wa_sales-country = 'DE'.
+*   value expression in ABAP
+    append value #( customer = 'IBM' amount = 5000 country = 'DE' ) to tab_sales.
+    tab_sales = value #( ( customer = 'IBM' amount = 5000 country = 'DE' )
+                        ( customer = 'IBM' amount = 1800 country = 'IN' )
+                        ( customer = 'Tapla' amount = 2500 country = 'IN' )
+                        ( customer = 'Tapla' amount = 2800 country = 'US' )
+                        ( customer = 'Nestle' amount = 7800 country = 'US' )
+                        ( customer = 'Nestle' amount = 7400 country = 'DE' )
+                        ( customer = 'IBM' amount = 2000 country = 'IN' )
+                        ( customer = 'Nestle' amount = 8500 country = 'US' ) ).
+
+
+  ENDMETHOD.
+
+  METHOD learn_corresponding.
+
+    "Move data from source to target when both column names are matching
+    "me->tab_invoice = CORRESPONDING #( tab_sales ).
+
+    "Move data when field names are not matching
+*    tab_sales_new = CORRESPONDING #( tab_sales mapping
+*                                        shiptoparty = customer
+*                                        ctry = country
+*                                        gross_val = amount
+*                                     ).
+
+    "Moving data from source which has duplicate values to target which can only hold
+    "unique values
+*    me->tab_invoice = CORRESPONDING #( me->tab_sales
+*    DISCARDING DUPLICATES MAPPING customer = customer EXCEPT * ).
+
+  ENDMETHOD.
+
+  METHOD learn_read_key.
+*    read table itab into wa with key col = 'val'.
+    if line_exists( me->tab_sales[ CUSTOMER = 'HUL' ] ).
+        out->write(
+          EXPORTING
+            data   = 'Yes it exist'
+            name   = 'From Learn Read Key'
+        ).
+    else.
+        out->write(
+          EXPORTING
+            data   = 'No it does not'
+            name   = 'From Learn Read Key'
+        ).
+    endif.
+
+  ENDMETHOD.
+
+  METHOD new_loop.
+
+   me->tab_sales_new = value #( for wa in me->tab_sales (
+                                shiptoparty = wa-customer
+                                gross_val = wa-amount
+                                ctry = wa-country
+                                control = 'X'
+                          ) ).
+
+  ENDMETHOD.
+
+  method grouper.
+   data: lv_grouped_total type int4.
+
+   loop at me->tab_sales into data(wa_sales) group by wa_sales-customer into data(lt_grouped) .
+
+        loop at group lt_grouped into data(ls_group).
+            lv_grouped_total += ls_group-amount.
+        endloop.
+        APPEND value #( company = lt_grouped total =  lv_grouped_total ) to me->tab_group.
+        clear: lv_grouped_total.
+    ENDLOOP.
+
+
+  ENDMETHOD.
+
+  METHOD print_data.
+    out->write(
+      EXPORTING
+        data   = me->tab_group
+*        name   =
+*      RECEIVING
+*        output =
+    ).
+*    out->write(
+*      EXPORTING
+*        data   = me->tab_invoice
+**        name   =
+**      RECEIVING
+**        output =
+*    ).
+*    out->write(
+*      EXPORTING
+*        data   = me->tab_sales_new
+**        name   =
+**      RECEIVING
+**        output =
+*    ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS zats_00_eml_learning DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    INTERFACES if_oo_adt_classrun.
+    data: lv_type type c value 'R'.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zats_00_eml_learning IMPLEMENTATION.
+  METHOD if_oo_adt_classrun~main.
+
+     case lv_type.
+        when 'R'.
+
+            read ENTITIES of ZATS_00_M_TRAVEL
+                entity Travel from value #( ( travel_id = '00000002'
+                                              %control =
+                                              value #( booking_fee = if_abap_behv=>mk-on
+                                                       description = if_abap_behv=>mk-on
+                                                       currency_code = if_abap_behv=>mk-on )
+
+
+                 ) )
+                result data(lt_found_records).
+
+            if lt_found_records is NOT INITIAL.
+                out->write(
+                  EXPORTING
+                    data   = lt_found_records
+*                    name   =
+*                  RECEIVING
+*                    output =
+                ).
+            ENDIF.
+
+        when 'C'.
+                data: it_data_create type table for create ZATS_00_M_TRAVEL.
+                it_data_create = value #(
+                                            ( travel_id = '00000002'
+                                              agency_id = 70003
+                                              customer_id = 3
+                                              begin_date = cl_abap_context_info=>get_system_date( )
+                                              end_date = cl_abap_context_info=>get_system_date(  ) + 30
+                                              booking_fee = 50
+                                              total_price = 5000
+                                              currency_code = 'USD'
+                                              overall_status = 'O'
+                                              description = 'Wallah'
+                                              %control = VALUE #( agency_id = if_abap_behv=>mk-on
+                                                                  travel_id =  if_abap_behv=>mk-on
+                                                                  customer_id = if_abap_behv=>mk-on
+                                                                  begin_date = if_abap_behv=>mk-on
+                                                                  end_date = if_abap_behv=>mk-on
+                                                                  booking_fee = if_abap_behv=>mk-on
+                                                                  total_price = if_abap_behv=>mk-on
+                                                                  currency_code = if_abap_behv=>mk-on
+                                                                  overall_status = if_abap_behv=>mk-on
+                                                                  description = if_abap_behv=>mk-on
+                                                                 )
+                                             )
+                                        ).
+
+
+                MODIFY ENTITIES OF ZATS_00_M_TRAVEL
+                    ENTITY Travel
+                    create from it_data_create
+                    FAILED data(lt_data_failed)
+                    REPORTED data(lt_reported).
+
+                if lt_data_failed is not INITIAL.
+                    out->write(
+                      EXPORTING
+                        data   = lt_data_failed
+*                        name   =
+*                      RECEIVING
+*                        output =
+                    ).
+
+                ENDIF.
+    when 'U'.
+
+        data: it_instance_u type table for update ZATS_00_M_TRAVEL.
+
+        it_instance_u =  value #( ( travel_id = '00000002' description = 'Fantastic 4'
+                                    %control = value #( description = if_abap_behv=>mk-on )
+                                 ) ).
+
+        modify ENTITIES of ZATS_00_M_TRAVEL
+            entity Travel
+            update from it_instance_u
+            failed lt_data_failed
+            reported lt_reported.
+
+        if lt_data_failed is not INITIAL.
+            out->write(
+              EXPORTING
+                data   = lt_data_failed
+*                name   =
+*              RECEIVING
+*                output =
+            ).
+
+        ENDIF.
+
+
+    when 'D'.
+
+        data: it_instance_d type table for delete ZATS_00_M_TRAVEL.
+
+        it_instance_d =  value #( ( travel_id = '00000002'
+                                 ) ).
+
+        modify ENTITIES of ZATS_00_M_TRAVEL
+            entity Travel
+            delete from it_instance_d
+            failed lt_data_failed
+            reported lt_reported.
+
+        if lt_data_failed is not INITIAL.
+            out->write(
+              EXPORTING
+                data   = lt_data_failed
+*                name   =
+*              RECEIVING
+*                output =
+            ).
+
+        ENDIF.
+
+    endcase.
+    COMMIT ENTITIES.
+
+  ENDMETHOD.
+
+ENDCLASS.

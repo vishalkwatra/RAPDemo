@@ -1,0 +1,224 @@
+1. We have implemented the BO - 3 entities - last class Travel,Booking, Supplement
+2. Defined the base behavior definition - for all entities - last class
+3. Defined the projection layer for entities - Travel, Booking, Booking Suppl
+4. While defining the projection we have to provide
+   4.1 UI Annotations - Facet, LineItem, Selection Field, Identification
+   4.2 Make sure that association points to parent and child as per orginal definition in the project
+
+ZATS_00_M_PROC_TRAVEL
+ZATS_00_M_PROC_BOOKING
+ZATS_00_M_PROC_BSUPPL
+
+5. Create Behavior Definition - for projection layer - ZATS_00_M_PROC_TRAVEL
+6. Create Service Definition - Expose all entities and master data views for service - Zats_00_SD_M_TRAVEL_P
+7. Create Service Binding with exposure to Fiori UI - activate the end point
+
+@EndUserText.label: 'processor Travel projection'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@UI: {
+    headerInfo: {
+        typeName: 'Travel',
+        typeNamePlural: 'Travels',
+        title: { type: #STANDARD, value: 'TravelId' }
+    }
+}
+@Search.searchable: true
+define root view entity ZATS_00_M_PROC_TRAVEL as projection on ZATS_00_M_TRAVEL {
+    //ZATS_00_M_TRAVEL
+    
+    @UI.facet: [{ id: 'Travel',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Travel',
+                  position: 10 },
+                { id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking',
+                  position: 20,
+                  targetElement: '_Booking'
+                }  
+                  
+                  ]
+    
+    @UI: { lineItem: [{ position: 10, importance: #HIGH }],
+           identification: [{ position: 20, label: 'Travel Id [1,......,999999]' }] }
+    @Search.defaultSearchElement: true
+    key travel_id as TravelId,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 10, label: 'Agency Id' }],
+           selectionField: [{ position: 10 }] }
+    agency_id as AgencyId,
+     @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30, label: 'Customer Id' }],
+           selectionField: [{ position: 30 }] }
+    customer_id as CustomerId,
+     @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }],
+           selectionField: [{ position: 40 }] }
+    begin_date as BeginDate,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }],
+           selectionField: [{ position: 50 }] }
+    end_date as EndDate,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }],
+           selectionField: [{ position: 60 }] }
+    booking_fee as BookingFee,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }],
+           selectionField: [{ position: 70 }] }
+    total_price as TotalPrice,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }],
+           selectionField: [{ position: 80 }] }
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }],
+           selectionField: [{ position: 90 }] }
+    description as Description,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }],
+           selectionField: [{ position: 100 }] }
+    overall_status as Status,
+    @UI.hidden: true
+    last_changed_at as ChangedAt,
+    /* Associations */
+    //ZATS_00_M_TRAVEL
+    _Agency,
+    _Booking : redirected to composition child ZATS_00_M_PROC_BOOKING,
+    _Currency,
+    _Customer
+}
+
+
+@EndUserText.label: 'Processor Scenario for Booking'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@UI.headerInfo: {
+    typeName: 'Booking',
+    typeNamePlural: 'Bookings',
+    title: {type: #STANDARD, value: 'BookingID'}
+}
+
+define view entity ZATS_00_M_PROC_BOOKING as projection on ZATS_00_M_BOOKING {
+    //ZATS_00_M_BOOKING
+    @UI.facet: [{ id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Booking',     
+                  position: 10  
+                    
+                },
+                { id: 'BookingSupplement',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking Supplement',
+                  position: 20,
+                  targetElement: '_BooSupplement'
+                }  ]
+    @Search.defaultSearchElement: true                
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20 }] }
+    key booking_id as BookingID,
+    @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30 }] }
+    booking_date as BookingDate,
+    @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }] }
+    customer_id as CustomerId,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }] }
+    carrier_id as CarrierId,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }] }
+    connection_id as ConnectionId,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }] }
+    flight_date as FlightDate,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }] }
+    flight_price as FlightPrice,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }] }
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }] }
+    booking_status as BookingStatus,
+    last_changed_at as LastChangedAt,
+    /* Associations */
+    //ZATS_00_M_BOOKING
+    _BooSupplement: redirected to composition child ZATS_00_M_PROC_BSUPPL,
+    _Carrier,
+    _Connection,
+    _Customer,
+    _Travel: redirected to parent ZATS_00_M_PROC_TRAVEL
+}
+
+
+@EndUserText.label: 'Booking Suppliment Processor Projection View'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+@UI.headerInfo: {
+        typeName: 'Booking Supplement',
+        typeNamePlural: 'Booking Supplements',
+        title: {type: #STANDARD, label: 'Booking Supplement', 
+                value: 'SupplementID'}
+}
+
+define view entity ZATS_00_M_PROC_BSUPPL as projection on ZATS_00_M_BOOKSUPPL {
+    //ZATS_00_M_BOOKSUPPL
+    @UI: { lineItem: [{ position: 10, importance: #HIGH }],
+           identification: [{ position: 10 }] }
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20 }] }
+    key booking_id as BookingID,
+    @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30 }] }
+    key booking_supplement_id as SupplementID,
+    @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }] }
+    supplement_id as SupplimentNo,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }] }
+    price as Price,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }] }
+    currency_code as CurrencyCode,
+    @UI.hidden: true
+    last_changed_at as LastChangedAt,
+    /* Associations */
+    //ZATS_00_M_BOOKSUPPL
+    _Booking : redirected to parent ZATS_00_M_PROC_BOOKING,
+    _Product,
+    _SupplementText
+}
+
+
+projection;
+
+define behavior for ZATS_00_M_PROC_TRAVEL alias Travel
+{
+  use create;
+  use update;
+  use delete;
+  use association _BOOKING { create; }
+}
+
+@EndUserText.label: 'Service Definition for Travel'
+define service ZATS_00_TRAVEL_SD {
+  expose ZATS_00_M_PROC_TRAVEL as Travel;
+  expose ZATS_00_M_PROC_BOOKING as Booking;
+  expose ZATS_00_M_PROC_BSUPPL as BookingSupplement;
+  expose /DMO/I_Supplement as Supplement;
+  expose /DMO/I_SupplementText as SupplementText;
+  expose /DMO/I_Customer as Customer;
+  expose /DMO/I_Agency as Agency;
+  expose /DMO/I_Carrier as Carrier;
+  expose /DMO/I_Connection as Connection;
+  expose /DMO/I_Flight as Flight;
+  expose I_Currency as Currency;
+  expose I_Country as Country;
+}
+

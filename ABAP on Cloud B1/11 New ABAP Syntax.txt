@@ -1,0 +1,289 @@
+@AbapCatalog.sqlViewName: 'ZATS00MTRAVEL'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Travel view for composition Root'
+define root view ZATS_00_M_TRAVEL as select from /dmo/travel_m as Travel
+composition[0..*] of ZATS_00_M_BOOKING as _Booking
+association [1] to ZATS_00_I_U_agency as _Agency
+    on $projection.agency_id = _Agency.AgencyId 
+association [1] to ZATS_00_I_U_CUSTOMER as _Customer    
+    on $projection.customer_id = _Customer.CustomerID
+association [1] to I_Currency as _Currency on
+        $projection.currency_code = _Currency.Currency
+    {
+    ///dmo/travel_m
+    key travel_id,
+    agency_id,
+    customer_id,
+    begin_date,
+    end_date,
+    @Semantics.amount.currencyCode: 'currency_code'
+    booking_fee,
+    @Semantics.amount.currencyCode: 'currency_code'
+    total_price,
+    @Semantics.currencyCode: true
+    currency_code,
+    description,
+    overall_status,
+    @Semantics.user.createdBy: true
+    created_by,
+    @Semantics.systemDateTime.createdAt: true
+    created_at,
+    @Semantics.user.lastChangedBy: true
+    last_changed_by,
+    @Semantics.systemDateTime.lastChangedAt: true
+    last_changed_at, --used for etag
+    _Booking,
+    _Agency,
+    _Customer,
+    _Currency
+}
+
+
+@AbapCatalog.sqlViewName: 'ZATS00MBOK'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Business Object Child Element (Composition Child)'
+define view ZATS_00_M_BOOKING as select from /dmo/booking_m as Booking 
+association to parent ZATS_00_M_TRAVEL as _Travel on $projection.travel_id = _Travel.travel_id
+composition[0..*] of ZATS_00_M_BOOKSUPPL as _BooSupplement
+association [1..1] to /DMO/I_Customer as _Customer
+    on $projection.customer_id = _Customer.CustomerID
+association [1..1] to /DMO/I_Carrier as _Carrier
+    on $projection.carrier_id = _Carrier.AirlineID    
+association [1..1] to /DMO/I_Connection as _Connection
+    on $projection.carrier_id = _Connection.AirlineID and 
+    $projection.connection_id = _Connection.ConnectionID
+     {
+    ///dmo/booking
+    ///dmo/booking_m
+    key travel_id,
+    key booking_id,
+    booking_date,
+    customer_id,
+    carrier_id,
+    connection_id,
+    flight_date,
+    flight_price,
+    currency_code,
+    booking_status,
+    _Travel.last_changed_at,
+    _Travel,
+    _Customer,
+    _Carrier,
+    _Connection,
+    _BooSupplement
+}
+
+
+@AbapCatalog.sqlViewName: 'ZATS00MBOOKSUPPL'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Entity for Booking Suppliment'
+define view ZATS_00_M_BOOKSUPPL as select from /dmo/booksuppl_m as BookSupplment 
+    association to parent ZATS_00_M_BOOKING as _Booking on
+     $projection.booking_id = _Booking.booking_id and 
+     $projection.travel_id = _Booking.travel_id
+    association [1..1] to /dmo/travel_m as _Travel on
+     $projection.travel_id = _Travel.travel_id 
+    association [1..1] to /DMO/I_Supplement as _Product on
+     $projection.supplement_id = _Product.SupplementID 
+    association [1..1] to /DMO/I_SupplementText as _SupplementText on
+     $projection.supplement_id = _SupplementText.SupplementID
+{
+    //BookSupplment
+    key travel_id,
+    key booking_id,
+    key booking_supplement_id,
+    supplement_id,
+    @Semantics.amount.currencyCode: 'currency_code'
+    price,
+    @Semantics.currencyCode: true
+    currency_code,
+    _Travel.last_changed_at, --take for etag purpose
+    _Booking,
+    _Product,
+    _SupplementText
+    
+    
+}
+
+
+managed; // implementation in class zbp_ats_00_m_travel unique;
+
+define behavior for ZATS_00_M_TRAVEL //alias <alias_name>
+persistent table /DMO/TRAVEL_M
+lock master
+//authorization master ( instance )
+etag master last_changed_at
+{
+  create;
+  update;
+  delete;
+  association _Booking { create; }
+}
+
+define behavior for ZATS_00_M_BOOKING //alias <alias_name>
+persistent table /DMO/BOOKING_M
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  update;
+  delete;
+  association _BooSupplement { create; }
+}
+
+define behavior for ZATS_00_M_BOOKSUPPL //alias <alias_name>
+persistent table /dmo/booksuppl_m
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  update;
+  delete;
+}
+
+CLASS zrecap_new_abap_syntax DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    types: begin of ty_sales,
+            customer type c length 10,
+            amount type int4,
+            country type land1,
+           end of ty_sales,
+           begin of ty_sales_new,
+            shiptoparty type c length 10,
+            gross_val type int4,
+            ctry type land1,
+            control type c LENGTH 1,
+           end of ty_sales_new,
+           begin of ty_invoice,
+            customer type c length 10,
+            amount type int4,
+            country type land1,
+           end of ty_invoice,
+           tt_sales type standard table of ty_sales,
+           tt_invoice type SORTED TABLE OF ty_invoice with UNIQUE KEY customer,
+           tt_sales_new type standard table of ty_sales_new.
+    data: tab_sales type tt_sales,
+          wa_sales type ty_sales,
+          tab_sales_new type tt_sales_new,
+          wa_sales_new type ty_sales,
+          tab_invoice type tt_invoice,
+          wa_invoice type ty_sales.
+    INTERFACES if_oo_adt_classrun.
+    methods: fill_table,
+             print_data IMPORTING out TYPE REF TO if_oo_adt_classrun_out,
+             learn_corresponding,
+             learn_read_key IMPORTING out TYPE REF TO if_oo_adt_classrun_out,
+             new_loop .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+CLASS zrecap_new_abap_syntax IMPLEMENTATION.
+  METHOD if_oo_adt_classrun~main.
+
+    me->fill_table( ).
+*    me->learn_corresponding(  ).
+*    me->learn_read_key( out = out ).
+    me->new_loop(  ).
+    me->print_data( out = out ).
+  ENDMETHOD.
+
+  METHOD fill_table.
+*    wa_sales-customer = 'IBM'.
+*    wa_sales-amount = 5000.
+*    wa_sales-country = 'DE'.
+*   value expression in ABAP
+    append value #( customer = 'IBM' amount = 5000 country = 'DE' ) to tab_sales.
+    tab_sales = value #( ( customer = 'IBM' amount = 5000 country = 'DE' )
+                        ( customer = 'IBM' amount = 1800 country = 'IN' )
+                        ( customer = 'Tapla' amount = 2500 country = 'IN' )
+                        ( customer = 'Tapla' amount = 2800 country = 'US' )
+                        ( customer = 'Nestle' amount = 7800 country = 'US' )
+                        ( customer = 'Nestle' amount = 7400 country = 'DE' ) ).
+
+
+
+  ENDMETHOD.
+
+  METHOD learn_corresponding.
+
+    "Move data from source to target when both column names are matching
+    "me->tab_invoice = CORRESPONDING #( tab_sales ).
+
+    "Move data when field names are not matching
+*    tab_sales_new = CORRESPONDING #( tab_sales mapping
+*                                        shiptoparty = customer
+*                                        ctry = country
+*                                        gross_val = amount
+*                                     ).
+
+    "Moving data from source which has duplicate values to target which can only hold
+    "unique values
+*    me->tab_invoice = CORRESPONDING #( me->tab_sales
+*    DISCARDING DUPLICATES MAPPING customer = customer EXCEPT * ).
+
+  ENDMETHOD.
+
+  METHOD learn_read_key.
+*    read table itab into wa with key col = 'val'.
+    if line_exists( me->tab_sales[ CUSTOMER = 'HUL' ] ).
+        out->write(
+          EXPORTING
+            data   = 'Yes it exist'
+            name   = 'From Learn Read Key'
+        ).
+    else.
+        out->write(
+          EXPORTING
+            data   = 'No it does not'
+            name   = 'From Learn Read Key'
+        ).
+    endif.
+  ENDMETHOD.
+
+  METHOD new_loop.
+
+   me->tab_sales_new = value #( for wa in me->tab_sales (
+                                shiptoparty = wa-customer
+                                gross_val = wa-amount
+                                ctry = wa-country
+                                control = 'X'
+                          ) ).
+
+  ENDMETHOD.
+
+  METHOD print_data.
+    out->write(
+      EXPORTING
+        data   = me->tab_sales
+*        name   =
+*      RECEIVING
+*        output =
+    ).
+    out->write(
+      EXPORTING
+        data   = me->tab_invoice
+*        name   =
+*      RECEIVING
+*        output =
+    ).
+    out->write(
+      EXPORTING
+        data   = me->tab_sales_new
+*        name   =
+*      RECEIVING
+*        output =
+    ).
+  ENDMETHOD.
+
+ENDCLASS.

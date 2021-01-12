@@ -1,0 +1,110 @@
+@EndUserText.label : 'Sales Orders Table'
+@AbapCatalog.enhancementCategory : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #LIMITED
+define table zats_sales_order {
+  key client    : abap.clnt not null;
+  key so_id     : abap.int4 not null;
+  customer_name : abap.char(80);
+  sales_org     : abap.char(4);
+  @Semantics.amount.currencyCode : 'zats_sales_order.currency_code'
+  gross_amount  : abap.curr(10,2);
+  currency_code : abap.cuky;
+  created_by    : syuname;
+  created_on    : timestampl;
+
+}
+
+@AbapCatalog.sqlViewName: 'ZATS_SO'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Consumption Layer for Data Modeling'
+
+@UI.headerInfo:{
+    typeName: 'Sales Order',
+    typeNamePlural: 'Sales Orders'
+}
+
+define root view ZATS_C_SALES_ORDER as select from zats_sales_order{
+    //zats_sales_order
+    @UI.facet: [{id: 'Sales Orders',
+                 purpose: #STANDARD,
+                 type: #IDENTIFICATION_REFERENCE,
+                 label: 'Sales Order',
+                 position: 10
+                  }]
+    @UI.selectionField: [{position: 10 }]
+    @UI.lineItem:  [{position: 10 }]
+    @UI.identification: [{position: 10 }]
+    key so_id,
+    @UI.selectionField: [{position: 20 }]
+    @UI.lineItem:  [{position: 20 }]
+    @UI.identification: [{position: 20 }]
+    customer_name,
+    @UI.selectionField: [{position: 30 }]
+    @UI.lineItem:  [{position: 30 }]
+    @UI.identification: [{position: 30 }]
+    sales_org,
+    @UI.selectionField: [{position: 40 }]
+    @UI.lineItem:  [{position: 40 }]
+    @UI.identification: [{position: 40 }]
+    gross_amount,
+    @UI.selectionField: [{position: 50 }]
+    @UI.lineItem:  [{position: 50 }]
+    currency_code,
+    created_by,
+    created_on    
+}
+
+
+
+managed; // implementation in class zbp_ats_c_sales_order unique;
+
+define behavior for ZATS_C_SALES_ORDER //alias <alias_name>
+persistent table ZATS_SALES_ORDER
+lock master
+//authorization master
+//etag <field_name>
+{
+  create;
+  update;
+  delete;
+}
+
+@EndUserText.label: 'Sales order service definition'
+define service ZATS_SDEF_SO {
+  expose ZATS_C_SALES_ORDER;
+}
+
+
+CLASS zcl_insert_so DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    INTERFACES if_oo_adt_classrun.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zcl_insert_so IMPLEMENTATION.
+METHOD if_oo_adt_classrun~main.
+    data : ls_so type zats_sales_order.
+
+    ls_so-so_id  = 1.
+    ls_so-customer_name  = 'Anubhav'.
+    ls_so-sales_org  = 0001.
+    ls_so-gross_amount  = 10000.
+    ls_so-currency_code  = 'INR'.
+    ls_so-created_by  = sy-uname.
+    get time stamp field ls_so-created_on.
+
+    insert  zats_sales_order from  @ls_so.
+ENDMETHOD.
+ENDCLASS.
+

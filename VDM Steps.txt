@@ -1,0 +1,31 @@
+
+*************** Create VDM With CDS Steps **********************
+
+1. Create Table ZVBAK and Activate
+
+2. Create Table ZVBAP with F-Key of ZVBAK
+
+3. Add Sample Data
+
+4. Create Basic CDS Z_I_Sales_Header_XX
+
+5. Create Basic CDS Z_I_Sales_Item_XX
+
+6. Create Composite Root CDS Z_I_Sales_Header_M_XX
+
+7. Create Composite CDS Z_I_Sales_Item_M_XX
+
+8. Add Annotation to the Composite CDS View
+
+9. Create Service Binding and Service Definition exposing root CDS and Item
+
+10. Add Annotation to use Navigation for Association
+
+11. Check UI
+
+12. Add Behavior Definition(BD)
+
+13. Add Persistance Table, Add Association, Lock Master and Lock Dependent
+
+14. Add Mapping in BD and Test how app works in UI and what feature is not working
+

@@ -1,0 +1,266 @@
+managed; // implementation in class zbp_ats_00_m_travel unique;
+
+define behavior for ZATS_00_M_TRAVEL alias Travel
+implementation in class ZCL_ATS_00_M_TRAVEL unique
+persistent table /DMO/TRAVEL_M
+lock master
+//authorization master ( instance )
+etag master last_changed_at
+{
+    //static feature control
+  field ( readonly ) last_changed_at, last_changed_by, created_at, created_by;
+  field ( mandatory ) agency_id, overall_status, booking_fee, currency_code;
+  //dynamic feature control
+  field ( features: instance ) travel_id;
+  //actions
+  action createTravelByTemplate result [1] $self;
+  action approveTravel result[1] $self;
+  action rejectTravel result[1] $self;
+  create;
+  update;
+  delete;
+  association _Booking { create; }
+}
+
+define behavior for ZATS_00_M_BOOKING alias Booking
+persistent table /DMO/BOOKING_M
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  field ( mandatory ) carrier_id, connection_id, flight_date;
+
+  update;
+  delete;
+  association _BooSupplement { create; }
+}
+
+define behavior for ZATS_00_M_BOOKSUPPL alias BookSuppl
+persistent table /dmo/booksuppl_m
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  field (mandatory) supplement_id, price;
+  update;
+  delete;
+}
+
+
+CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS approveTravel FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~approveTravel RESULT result.
+
+    METHODS createTravelByTemplate FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~createTravelByTemplate RESULT result.
+
+    METHODS rejectTravel FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~rejectTravel RESULT result.
+
+    METHODS get_features FOR FEATURES
+      IMPORTING keys REQUEST requested_features FOR Travel RESULT result.
+
+ENDCLASS.
+
+CLASS lhc_Travel IMPLEMENTATION.
+
+  METHOD approveTravel.
+  ENDMETHOD.
+
+  METHOD createTravelByTemplate.
+
+    "step 1: identify the max travel id which exist in our DB table
+    select max( travel_id ) from /dmo/travel_m into @data(lv_travel_id).
+
+    "step 2: read the travel instance using EML - complete record which needs to be copied
+    READ ENTITY ZATS_00_M_TRAVEL FROM VALUE #( FOR keyval in keys (
+        %key = keyval-%key
+        %control-travel_id = if_abap_behv=>mk-on
+        %control-agency_id = if_abap_behv=>mk-on
+        %control-customer_id = if_abap_behv=>mk-on
+        %control-booking_fee = if_abap_behv=>mk-on
+        %control-total_price = if_abap_behv=>mk-on
+        %control-currency_code = if_abap_behv=>mk-on
+     ) )  RESULT data(lt_travel).
+
+    "step 3: create a new BO instance using EML - MODIFY ENTITIES
+    data(lv_today) = cl_abap_context_info=>get_system_date( ).
+    data: lt_create type table for CREATE ZATS_00_M_TRAVEL.
+    lt_create = value #( for row in lt_travel index into idx (
+                            travel_id = lv_travel_id + idx
+                            agency_id = row-agency_id
+                            customer_id = row-customer_id
+                            booking_fee = row-booking_fee
+                            begin_date = lv_today
+                            end_date = lv_today + 30
+                            total_price = row-total_price
+                            currency_code = row-currency_code
+                            description = 'Welcome to the RAP'
+                            overall_status = 'O'
+                            %control = value #(
+                                travel_id = if_abap_behv=>mk-on
+                                agency_id = if_abap_behv=>mk-on
+                                customer_id = if_abap_behv=>mk-on
+                                begin_date = if_abap_behv=>mk-on
+                                end_date = if_abap_behv=>mk-on
+                                total_price = if_abap_behv=>mk-on
+                                currency_code = if_abap_behv=>mk-on
+                                description = if_abap_behv=>mk-on
+                                overall_status = if_abap_behv=>mk-on
+                                booking_fee = if_abap_behv=>mk-on
+                             )
+     ) ).
+
+     MODIFY ENTITIES OF  ZATS_00_M_TRAVEL
+     ENTITY Travel
+     CREATE From lt_create
+     MAPPED mapped
+     failed failed
+     reported reported.
+
+     result = value #( for created in lt_create index into idx (
+        %cid_ref = keys[ idx ]-%cid_ref
+        %key = keys[ idx ]-%key
+        %param = CORRESPONDING #( created )
+     ) ).
+
+  ENDMETHOD.
+
+  METHOD rejectTravel.
+  ENDMETHOD.
+
+  METHOD get_features.
+
+    "step 1: read the BO using its key with the help of EML
+    READ ENTITY ZATS_00_M_TRAVEL FROM VALUE #( FOR keyval in keys (
+        %key = keyval-%key
+        %control-travel_id = if_abap_behv=>mk-on
+     ) )  RESULT data(lt_travel).
+
+    result = value #( for ls_travel in lt_travel (
+        %key = ls_travel-%key
+        %field-travel_id = if_abap_behv=>fc-f-read_only
+     ) ).
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+
+projection;
+
+define behavior for ZATS_00_M_PROC_TRAVEL alias Travel
+{
+  field ( mandatory ) BeginDate, EndDate, CustomerID;
+  use create;
+  use update;
+  use delete;
+  use association _BOOKING { create; }
+  use action createTravelByTemplate;
+}
+
+define behavior for ZATS_00_M_PROC_BOOKING alias Booking
+{
+    use update;
+    use association _BooSupplement{ create; }
+}
+
+define behavior for ZATS_00_M_PROC_BSUPPL alias BookingSuppl
+{
+    use update;
+}
+
+
+@EndUserText.label: 'processor Travel projection'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@UI: {
+    headerInfo: {
+        typeName: 'Travel',
+        typeNamePlural: 'Travels',
+        title: { type: #STANDARD, 
+        value: 'TravelID' }
+    }
+}
+@Search.searchable: true
+define root view entity ZATS_00_M_PROC_TRAVEL as projection on ZATS_00_M_TRAVEL {
+    //ZATS_00_M_TRAVEL
+    
+    @UI.facet: [{ id: 'Travel',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Travel',
+                  position: 10 },
+                { id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking',
+                  position: 20,
+                  targetElement: '_Booking'
+                }  
+                  
+                  ]
+    
+    @UI: { lineItem: [{ position: 10, importance: #HIGH, 
+                        type: #FOR_ACTION, dataAction: 'createTravelByTemplate',
+                        label: 'make a copy' }],
+           identification: [{ position: 10, label: 'Travel Id [1,......,999999]' }] }
+    @Search.defaultSearchElement: true
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20, label: 'Agency Id' }],
+           selectionField: [{ position: 20 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Agency', element: 'AgencyID' } }]
+    @ObjectModel.text.element: ['AgencyName']           
+    agency_id as AgencyID,
+    _Agency.AgencyName as AgencyName,
+     @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30, label: 'Customer Id' }],
+           selectionField: [{ position: 30 }] }
+     @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    @ObjectModel.text.element: ['CustomerName']
+    customer_id as CustomerID,
+    _Customer.LastName as CustomerName,
+     @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }],
+           selectionField: [{ position: 40 }] }
+    begin_date as BeginDate,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }],
+           selectionField: [{ position: 50 }] }
+    end_date as EndDate,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }],
+           selectionField: [{ position: 60 }] }
+    booking_fee as BookingFee,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }],
+           selectionField: [{ position: 70 }] }
+    total_price as TotalPrice,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }],
+           selectionField: [{ position: 80 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: 'I_Currency', element: 'Currency' } }]
+    
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }],
+           selectionField: [{ position: 90 }] }
+    description as Description,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH }],
+           identification: [{ position: 100 }],
+           selectionField: [{ position: 100 }] }
+    overall_status as Status,
+    @UI.hidden: true
+    last_changed_at as ChangedAt,
+    /* Associations */
+    //ZATS_00_M_TRAVEL
+    _Agency,
+    _Booking : redirected to composition child ZATS_00_M_PROC_BOOKING,
+    _Currency,
+    _Customer
+}
+
+

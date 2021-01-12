@@ -1,0 +1,94 @@
+@AbapCatalog.sqlViewName: 'ZATS00MBOK'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Business Object Child Element (Composition Child)'
+define view ZATS_00_M_BOOKING as select from /dmo/booking
+association to parent ZATS_00_M_TRAVEL as _Travel on $projection.travel_id = _Travel.travel_id
+association [1..1] to /DMO/I_Customer as _Customer
+    on $projection.customer_id = _Customer.CustomerID
+association [1..1] to /DMO/I_Carrier as _Carrier
+    on $projection.carrier_id = _Carrier.AirlineID    
+association [1..1] to /DMO/I_Connection as _Connection
+    on $projection.carrier_id = _Connection.AirlineID and 
+    $projection.connection_id = _Connection.ConnectionID
+     {
+    ///dmo/booking
+    key travel_id,
+    key booking_id,
+    booking_date,
+    customer_id,
+    carrier_id,
+    connection_id,
+    flight_date,
+    flight_price,
+    currency_code,
+    _Travel,
+    _Customer,
+    _Carrier,
+    _Connection
+}
+
+
+@AbapCatalog.sqlViewName: 'ZATS00MTRAVEL'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Travel view for composition Root'
+define root view ZATS_00_M_TRAVEL as select from /dmo/travel
+composition[0..*] of ZATS_00_M_BOOKING as _Booking
+association [1] to ZATS_00_I_U_agency as _Agency
+    on $projection.agency_id = _Agency.AgencyId 
+association [1] to ZATS_00_I_U_CUSTOMER as _Customer    
+    on $projection.customer_id = _Customer.CustomerID
+    {
+    ///dmo/travel
+    key travel_id,
+    agency_id,
+    customer_id,
+    begin_date,
+    end_date,
+    @Semantics.amount.currencyCode: 'currency_code'
+    booking_fee,
+    @Semantics.amount.currencyCode: 'currency_code'
+    total_price,
+    currency_code,
+    description,
+    status,
+    @Semantics.user.createdBy: true
+    createdby,
+    @Semantics.systemDateTime.createdAt: true
+    createdat,
+    @Semantics.user.lastChangedBy: true
+    lastchangedby,
+    @Semantics.systemDateTime.lastChangedAt: true
+    lastchangedat,  --used as eTag
+    _Agency,
+    _Customer,
+    _Booking
+}
+
+
+managed; // implementation in class zbp_ats_00_m_travel unique;
+
+define behavior for ZATS_00_M_TRAVEL //alias <alias_name>
+persistent table /DMO/TRAVEL
+lock master
+//authorization master ( instance )
+etag master createdat
+{
+  create;
+  update;
+  delete;
+  association _Booking { create; }
+}
+
+define behavior for ZATS_00_M_BOOKING //alias <alias_name>
+persistent table /DMO/BOOKING
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+//etag master <field_name>
+{
+  update;
+  delete;
+}

@@ -1,0 +1,49 @@
+@EndUserText.label: 'Source of WebAPI'
+@ObjectModel.query.implementedBy: 'ABAP:ZCL_ATS_00_CUSTOM_Q'
+@UI.headerInfo: {
+    typeName: 'SalesDiscount',
+    typeNamePlural: 'SalesDiscounts'
+}
+define custom entity ZATS_00_CUSTOM_ENTITY 
+{
+@UI.facet: [{ id: 'SalesOrder', purpose: #STANDARD , type: #IDENTIFICATION_REFERENCE,
+              label: 'SalesOrder', position: 10 }]
+ @UI.selectionField: [{position: 10 }]
+ @UI.lineItem: [{position: 10 }]
+ @UI.identification: [{position: 10 }]             
+ key SalesOrderId : abap.char( 10 ) ;
+ @UI.selectionField: [{position: 20 }]
+ @UI.lineItem: [{position: 20 }]
+ @UI.identification: [{position: 20 }]
+  
+ CustomerId : abap.char( 10 ) ;
+ @UI.lineItem: [{position: 30 }]
+ @UI.identification: [{position: 30 }] 
+ CurrencyCode : abap.char( 5 ) ; 
+ @UI.lineItem: [{position: 40 }]
+ @UI.identification: [{position: 40 }]
+ GrossAmount : abap.dec( 15, 2 ) ; 
+ @UI.lineItem: [{position: 50 }]
+ @UI.identification: [{position: 50 }]
+ DiscountPct  : abap.dec(3,1);
+ @UI.lineItem: [{position: 10 }]
+ @UI.identification: [{position: 10 }]
+ DiscountAbs  : abap.dec(16,2);
+ @UI.lineItem: [{position: 60 }]
+ @UI.identification: [{position: 60 }]
+ //Custom field which will be calculated At Runtime
+ TotalPriceWithDiscount: abap.dec(17,3);
+ @UI.lineItem: [{position: 70 }]
+ @UI.identification: [{position: 70 }]
+ CalculatedETag : abap.string(0);
+   
+}
+
+
+@EndUserText.label: 'Custom Entity Service Definition'
+define service ZATS_00_SD_CUSTOMET {
+  expose ZATS_00_CUSTOM_ENTITY as Orders;
+}
+
+
+

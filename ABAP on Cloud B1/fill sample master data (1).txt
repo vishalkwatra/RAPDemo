@@ -1,0 +1,137 @@
+
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'TACUM'
+                    street = 'Victoria Street'
+                    city = 'Kolkatta'
+                    country = 'IN'
+                    region = 'APJ'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'SAP'
+                    street = 'Rosvelt Street Road'
+                    city = 'Walldorf'
+                    country = 'DE'
+                    region = 'EMEA'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'Asia High tech'
+                    street = '1-7-2 Otemachi'
+                    city = 'Tokyo'
+                    country = 'JP'
+                    region = 'APJ'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'AVANTEL'
+                    street = 'Bosque de Duraznos'
+                    city = 'Maxico'
+                    country = 'MX'
+                    region = 'NA'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'Pear Computing Services'
+                    street = 'Dunwoody Xing'
+                    city = 'Atlanta, Georgia'
+                    country = 'US'
+                    region = 'NA'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'PicoBit'
+                    street = 'Fith Avenue'
+                    city = 'New York City'
+                    country = 'US'
+                    region = 'NA'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'TACUM'
+                    street = 'Victoria Street'
+                    city = 'Kolkatta'
+                    country = 'IN'
+                    region = 'APJ'
+                    )
+                    to lt_bp.
+    append value #(
+                    bp_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    bp_role = '01'
+                    company_name = 'Indian IT Trading Company'
+                    street = 'Nariman Point'
+                    city = 'Mumbai'
+                    country = 'IN'
+                    region = 'APJ'
+                    )
+                    to lt_bp.                                
+                    
+   append value #(
+                    product_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    name = 'Blaster Extreme'
+                    category = 'Speakers'
+                    price = 1500
+                    currency = 'INR'
+                    discount = 3
+                    )
+                    to lt_prod.
+    append value #(
+                    product_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    name = 'Sound Booster'
+                    category = 'Speakers'
+                    price = 2500
+                    currency = 'INR'
+                    discount = 2
+                    )
+                    to lt_prod.
+    append value #(
+                    product_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    name = 'Smart Office'
+                    category = 'Software'
+                    price = 1540
+                    currency = 'INR'
+                    discount = 32
+                    )
+                    to lt_prod.
+    append value #(
+                    product_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    name = 'Smart Design'
+                    category = 'Software'
+                    price = 2400
+                    currency = 'INR'
+                    discount = 12
+                    )
+                    to lt_prod.
+    append value #(
+                    product_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    name = 'Transcend Carry pocket'
+                    category = 'PCs'
+                    price = 14000
+                    currency = 'INR'
+                    discount = 7
+                    )
+                    to lt_prod.
+    append value #(
+                    product_id = cl_uuid_factory=>create_system_uuid( )->create_uuid_c32( )
+                    name = 'Gaming Monster Pro'
+                    category = 'PCs'
+                    price = 15500
+                    currency = 'INR'
+                    discount = 8
+                    )
+                    to lt_prod.                
+

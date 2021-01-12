@@ -1,0 +1,528 @@
+managed; // implementation in class zbp_ats_00_m_travel unique;
+
+define behavior for ZATS_00_M_TRAVEL alias Travel
+implementation in class ZCL_ATS_00_M_TRAVEL unique
+persistent table /DMO/TRAVEL_M
+lock master
+//authorization master ( instance )
+etag master last_changed_at
+{
+    //static feature control
+  field ( readonly ) last_changed_at, last_changed_by, created_at, created_by;
+  field ( mandatory ) agency_id, overall_status, booking_fee, currency_code;
+  //dynamic feature control
+  field ( features: instance ) travel_id;
+  //actions
+  action createTravelByTemplate result [1] $self;
+  action ( features: instance )  approveTravel result[1] $self;
+  action ( features: instance )  rejectTravel result[1] $self;
+  validation validateStatus on save { field overall_status; }
+  create;
+  update;
+  delete;
+  association _Booking { create; }
+}
+
+define behavior for ZATS_00_M_BOOKING alias Booking
+implementation in class ZCL_ATS_00_M_BOOKING unique
+persistent table /DMO/BOOKING_M
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  field ( mandatory ) carrier_id, connection_id, flight_date;
+  determination calculateTotalFlightPrice on modify { field flight_price, currency_code; }
+
+  update;
+  delete;
+  association _BooSupplement { create; }
+}
+
+define behavior for ZATS_00_M_BOOKSUPPL alias BookSuppl
+persistent table /dmo/booksuppl_m
+lock dependent( travel_id = travel_id )
+//authorization dependent( <local_field_name> = <target_field_name> )
+etag master last_changed_at
+{
+  field (mandatory) supplement_id, price;
+  update;
+  delete;
+}
+
+
+CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS approveTravel FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~approveTravel RESULT result.
+
+    METHODS createTravelByTemplate FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~createTravelByTemplate RESULT result.
+
+    METHODS rejectTravel FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~rejectTravel RESULT result.
+
+    METHODS get_features FOR FEATURES
+      IMPORTING keys REQUEST requested_features FOR Travel RESULT result.
+
+    METHODS validateStatus for VALIDATION travel~validateStatus
+      importing keys for travel.
+
+
+ENDCLASS.
+
+CLASS lhc_Travel IMPLEMENTATION.
+
+  METHOD approveTravel.
+
+    "1. fire an update to change the status of the selected BO
+    MODIFY ENTITIES OF ZATS_00_M_TRAVEL
+    ENTITY Travel
+    update from value #( for key in keys (
+                            travel_id = key-travel_id
+                            overall_status = 'A'
+                            %control-overall_status = if_abap_behv=>mk-on
+     ) ).
+    "2. Read and return the updated values to output
+    READ ENTITIES of ZATS_00_M_TRAVEL
+    ENTITY Travel
+    from VALUE #( for key in keys (
+                            travel_id = key-travel_id
+                            %control = value #(
+                                        agency_id = if_abap_behv=>mk-on
+                                        travel_id = if_abap_behv=>mk-on
+                                        currency_code = if_abap_behv=>mk-on
+                                        customer_id = if_abap_behv=>mk-on
+                                        begin_date = if_abap_behv=>mk-on
+                                        end_date = if_abap_behv=>mk-on
+                                        booking_fee = if_abap_behv=>mk-on
+                                        description = if_abap_behv=>mk-on
+                                        total_price = if_abap_behv=>mk-on
+                                        overall_status = if_abap_behv=>mk-on
+                                        created_at = if_abap_behv=>mk-on
+                                        created_by = if_abap_behv=>mk-on
+                             )
+     ) ) RESULT data(lt_travel).
+
+     result = value #( for travel in lt_travel (
+                        travel_id = travel-travel_id
+                        %param = travel
+      ) ).
+
+
+  ENDMETHOD.
+
+  METHOD createTravelByTemplate.
+
+    "step 1: identify the max travel id which exist in our DB table
+    select max( travel_id ) from /dmo/travel_m into @data(lv_travel_id).
+
+    "step 2: read the travel instance using EML - complete record which needs to be copied
+    READ ENTITY ZATS_00_M_TRAVEL FROM VALUE #( FOR keyval in keys (
+        %key = keyval-%key
+        %control-travel_id = if_abap_behv=>mk-on
+        %control-agency_id = if_abap_behv=>mk-on
+        %control-customer_id = if_abap_behv=>mk-on
+        %control-booking_fee = if_abap_behv=>mk-on
+        %control-total_price = if_abap_behv=>mk-on
+        %control-currency_code = if_abap_behv=>mk-on
+     ) )  RESULT data(lt_travel).
+
+    "step 3: create a new BO instance using EML - MODIFY ENTITIES
+    data(lv_today) = cl_abap_context_info=>get_system_date( ).
+    data: lt_create type table for CREATE ZATS_00_M_TRAVEL.
+    lt_create = value #( for row in lt_travel index into idx (
+                            travel_id = lv_travel_id + idx
+                            agency_id = row-agency_id
+                            customer_id = row-customer_id
+                            booking_fee = row-booking_fee
+                            begin_date = lv_today
+                            end_date = lv_today + 30
+                            total_price = row-total_price
+                            currency_code = row-currency_code
+                            description = 'Welcome to the RAP'
+                            overall_status = 'O'
+                            %control = value #(
+                                travel_id = if_abap_behv=>mk-on
+                                agency_id = if_abap_behv=>mk-on
+                                customer_id = if_abap_behv=>mk-on
+                                begin_date = if_abap_behv=>mk-on
+                                end_date = if_abap_behv=>mk-on
+                                total_price = if_abap_behv=>mk-on
+                                currency_code = if_abap_behv=>mk-on
+                                description = if_abap_behv=>mk-on
+                                overall_status = if_abap_behv=>mk-on
+                                booking_fee = if_abap_behv=>mk-on
+                             )
+     ) ).
+
+     MODIFY ENTITIES OF  ZATS_00_M_TRAVEL
+     ENTITY Travel
+     CREATE From lt_create
+     MAPPED mapped
+     failed failed
+     reported reported.
+
+     result = value #( for created in lt_create index into idx (
+        %cid_ref = keys[ idx ]-%cid_ref
+        %key = keys[ idx ]-%key
+        %param = CORRESPONDING #( created )
+     ) ).
+
+  ENDMETHOD.
+
+  METHOD rejectTravel.
+  "1. fire an update to change the status of the selected BO
+    MODIFY ENTITIES OF ZATS_00_M_TRAVEL
+    ENTITY Travel
+    update from value #( for key in keys (
+                            travel_id = key-travel_id
+                            overall_status = 'X'
+                            %control-overall_status = if_abap_behv=>mk-on
+     ) ).
+    "2. Read and return the updated values to output
+    READ ENTITIES of ZATS_00_M_TRAVEL
+    ENTITY Travel
+    from VALUE #( for key in keys (
+                            travel_id = key-travel_id
+                            %control = value #(
+                                        agency_id = if_abap_behv=>mk-on
+                                        travel_id = if_abap_behv=>mk-on
+                                        currency_code = if_abap_behv=>mk-on
+                                        customer_id = if_abap_behv=>mk-on
+                                        begin_date = if_abap_behv=>mk-on
+                                        end_date = if_abap_behv=>mk-on
+                                        booking_fee = if_abap_behv=>mk-on
+                                        description = if_abap_behv=>mk-on
+                                        total_price = if_abap_behv=>mk-on
+                                        overall_status = if_abap_behv=>mk-on
+                                        created_at = if_abap_behv=>mk-on
+                                        created_by = if_abap_behv=>mk-on
+                             )
+     ) ) RESULT data(lt_travel).
+
+     result = value #( for travel in lt_travel (
+                        travel_id = travel-travel_id
+                        %param = travel
+      ) ).
+  ENDMETHOD.
+
+  METHOD get_features.
+
+    "step 1: read the BO using its key with the help of EML
+    READ ENTITY ZATS_00_M_TRAVEL FROM VALUE #( FOR keyval in keys (
+        %key = keyval-%key
+        %control-travel_id = if_abap_behv=>mk-on
+        %control-overall_status = if_abap_behv=>mk-on
+     ) )  RESULT data(lt_travel).
+
+    result = value #( for ls_travel in lt_travel (
+        %key = ls_travel-%key
+        %field-travel_id = if_abap_behv=>fc-f-read_only
+        %features-%action-approveTravel = cond #( when
+                        ls_travel-overall_status = 'A' then
+                                if_abap_behv=>fc-o-disabled
+                        else if_abap_behv=>fc-o-enabled )
+        %features-%action-rejectTravel = cond #( when
+                        ls_travel-overall_status = 'X' then
+                                if_abap_behv=>fc-o-disabled
+                        else if_abap_behv=>fc-o-enabled )
+     ) ).
+
+  ENDMETHOD.
+
+  METHOD validatestatus.
+    "1. read the entity travel by its key
+    READ ENTITY ZATS_00_M_TRAVEL FROM VALUE #(
+                FOR <key> in keys (
+                    %key = <key>
+                    %control = value #(
+                        overall_status = if_abap_behv=>mk-on
+                     )
+                 )
+    ) result data(lt_travel).
+    "2. check if the given status is valid
+    loop at lt_travel into data(ls_travel).
+        case ls_travel-overall_status.
+            when 'O'. when 'X'. when 'A'.
+            when OTHERS.
+                append value #( %key = ls_travel-%key ) to failed.
+                append value #( %key = ls_travel-%key
+                                %msg = new_message(
+                                  id = /dmo/cx_flight_legacy=>status_is_not_valid-msgid
+                                  number = /dmo/cx_flight_legacy=>status_is_not_valid-msgno
+                                  v1 = ls_travel-overall_status
+                                  severity = if_abap_behv_message=>severity-error
+                                  )
+                 ) to reported.
+        ENDCASE.
+    ENDLOOP.
+    "3. prepare and throw error message in Reported op
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+@EndUserText.label: 'Approver projection for travel'
+@AccessControl.authorizationCheck: #CHECK
+define root view entity ZATS_00_M_APPROVE_TRAVEL as projection on ZATS_00_M_TRAVEL {
+    //ZATS_00_M_TRAVEL
+    
+    @UI.facet: [{ id: 'Travel',
+                  purpose: #STANDARD,
+                  type: #IDENTIFICATION_REFERENCE,
+                  label: 'Travel',
+                  position: 10 },
+                { id: 'Booking',
+                  purpose: #STANDARD,
+                  type: #LINEITEM_REFERENCE,
+                  label: 'Booking',
+                  position: 20,
+                  targetElement: '_Booking'
+                }  
+                  
+                  ]
+    
+    @UI: { lineItem: [{ position: 10, importance: #HIGH }],
+           identification: [{ position: 10, label: 'Travel Id [1,......,999999]' }] }
+    @Search.defaultSearchElement: true
+    key travel_id as TravelID,
+    @UI: { lineItem: [{ position: 20, importance: #HIGH }],
+           identification: [{ position: 20, label: 'Agency Id' }],
+           selectionField: [{ position: 20 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Agency', element: 'AgencyID' } }]
+    @ObjectModel.text.element: ['AgencyName']           
+    agency_id as AgencyID,
+    _Agency.AgencyName as AgencyName,
+     @UI: { lineItem: [{ position: 30, importance: #HIGH }],
+           identification: [{ position: 30, label: 'Customer Id' }],
+           selectionField: [{ position: 30 }] }
+     @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    @ObjectModel.text.element: ['CustomerName']
+    customer_id as CustomerID,
+    _Customer.LastName as CustomerName,
+     @UI: { lineItem: [{ position: 40, importance: #HIGH }],
+           identification: [{ position: 40 }],
+           selectionField: [{ position: 40 }] }
+    begin_date as BeginDate,
+    @UI: { lineItem: [{ position: 50, importance: #HIGH }],
+           identification: [{ position: 50 }],
+           selectionField: [{ position: 50 }] }
+    end_date as EndDate,
+    @UI: { lineItem: [{ position: 60, importance: #HIGH }],
+           identification: [{ position: 60 }],
+           selectionField: [{ position: 60 }] }
+    booking_fee as BookingFee,
+    @UI: { lineItem: [{ position: 70, importance: #HIGH }],
+           identification: [{ position: 70 }],
+           selectionField: [{ position: 70 }] }
+    total_price as TotalPrice,
+    @UI: { lineItem: [{ position: 80, importance: #HIGH }],
+           identification: [{ position: 80 }],
+           selectionField: [{ position: 80 }] }
+    @Consumption.valueHelpDefinition: [{entity: { name: 'I_Currency', element: 'Currency' } }]
+    
+    currency_code as CurrencyCode,
+    @UI: { lineItem: [{ position: 90, importance: #HIGH }],
+           identification: [{ position: 90 }],
+           selectionField: [{ position: 90 }] }
+    description as Description,
+    @UI: { lineItem: [{ position: 100, importance: #HIGH },
+                      { type: #FOR_ACTION, dataAction: 'approveTravel', label: 'Approve' },
+                      { type: #FOR_ACTION, dataAction: 'rejectTravel', label: 'Reject' }],
+           identification: [{ position: 100 }],
+           selectionField: [{ position: 100 }] }
+    overall_status as Status,
+    @UI.hidden: true
+    last_changed_at as ChangedAt,
+    /* Associations */
+    //ZATS_00_M_TRAVEL
+    _Agency,
+    _Booking : redirected to composition child ZATS_00_M_APPROVE_BOOKING,
+    _Currency,
+    _Customer
+}
+
+
+
+class CL_ABAP_BEHV definition
+  public
+  create protected .
+
+public section.
+
+  types T_CID type ABP_BEHV_CID .
+  types T_FLAG type ABP_BEHV_FLAG .
+  types T_PID type ABP_BEHV_PID .
+
+  constants FLAG_NULL type ABP_BEHV_FLAG value '00' ##NO_TEXT.
+  constants FLAG_CHANGED type ABP_BEHV_FLAG value '01' ##NO_TEXT.
+  constants FLAG_ERROR type ABP_BEHV_FLAG value '80' ##NO_TEXT.
+
+  CONSTANTS:
+    "! Names of technical fields in derived structure types
+    BEGIN OF co_techfield_name,
+      control  TYPE fieldname VALUE '%CONTROL',
+      cid      TYPE fieldname VALUE '%CID',
+      cid_ref  TYPE fieldname VALUE '%CID_REF',
+      pre      TYPE fieldname VALUE '%PRE',  " 778
+      pid      TYPE fieldname VALUE '%PID',
+      tmp      TYPE fieldname VALUE '%TMP',
+      key      TYPE fieldname VALUE '%KEY',
+      data     TYPE fieldname VALUE '%DATA',
+      param    TYPE fieldname VALUE '%PARAM',
+      target   TYPE fieldname VALUE '%TARGET',
+      fail     TYPE fieldname VALUE '%FAIL',
+      msg      TYPE fieldname VALUE '%MSG',
+      other    TYPE fieldname VALUE '%OTHER',
+      element  TYPE fieldname VALUE '%ELEMENT',
+      field    TYPE fieldname VALUE '%FIELD',
+      create   TYPE fieldname VALUE '%CREATE',
+      update   TYPE fieldname VALUE '%UPDATE',
+      delete   TYPE fieldname VALUE '%DELETE',
+      assoc    TYPE fieldname VALUE '%ASSOC',
+      action   TYPE fieldname VALUE '%ACTION',
+      op       TYPE fieldname VALUE '%OP',
+      is_draft TYPE fieldname VALUE '%IS_DRAFT',  " 778
+    END OF co_techfield_name .
+
+  CONSTANTS:
+    "! Names of secondary keys on derived table types
+    BEGIN OF co_key_name,
+     "! Key containing %CID[_REF] [, %PID] and %KEY
+      cid     TYPE seckeyname VALUE 'CID',
+     "! Key containing %PID and %KEY
+      pid     TYPE seckeyname VALUE 'PID',
+     "! Key containing %KEY / entity key components
+      entity  TYPE seckeyname VALUE 'ENTITY',
+    END OF co_key_name .
+protected section.
+
+  constants MS like IF_ABAP_BEHV_MESSAGE=>SEVERITY value IF_ABAP_BEHV_MESSAGE=>SEVERITY ##NO_TEXT.
+  constants MC like IF_ABAP_BEHV=>CAUSE value IF_ABAP_BEHV=>CAUSE ##NO_TEXT.
+
+  methods NEW_MESSAGE
+    importing
+      !ID type SYMSGID
+      !NUMBER type SYMSGNO
+      !SEVERITY type IF_ABAP_BEHV_MESSAGE=>T_SEVERITY
+      !V1 type SIMPLE optional
+      !V2 type SIMPLE optional
+      !V3 type SIMPLE optional
+      !V4 type SIMPLE optional
+    returning
+      value(OBJ) type ref to IF_ABAP_BEHV_MESSAGE .
+  methods NEW_MESSAGE_WITH_TEXT
+    importing
+      !SEVERITY type IF_ABAP_BEHV_MESSAGE=>T_SEVERITY default IF_ABAP_BEHV_MESSAGE=>SEVERITY-ERROR
+      !TEXT type CSEQUENCE optional
+    returning
+      value(OBJ) type ref to IF_ABAP_BEHV_MESSAGE .
+ENDCLASS.
+
+
+CLASS lhc_Booking DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS calculateTotalFlightPrice FOR DETERMINATION Booking~calculateTotalFlightPrice
+      IMPORTING keys FOR Booking.
+
+ENDCLASS.
+
+CLASS lhc_Booking IMPLEMENTATION.
+
+  METHOD calculateTotalFlightPrice.
+    if keys is not initial.
+        zcl_ats_00_aux=>calculate_price( it_travel_id =
+            value #( for groups <booking> of booking_keys in
+                        keys group by booking_keys-travel_id
+                        WITHOUT MEMBERS ( <booking> )
+             )
+         ).
+    endif.
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS zcl_ats_00_aux DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    types: tt_travel_id type table of /dmo/travel_id.
+    class-methods calculate_price IMPORTING it_travel_id type tt_travel_id.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zcl_ats_00_aux IMPLEMENTATION.
+  METHOD calculate_price.
+       "1. read the relevant travel data - root entity
+       read ENTITIES of zats_00_m_travel
+       ENTITY travel
+       from value #( for lv_travel_id in it_travel_id (
+                            travel_id = lv_travel_id
+                            %control-currency_code = if_abap_behv=>mk-on
+       ) )
+       RESULT data(lt_travel_calc).
+
+       "2. Read all the bookings inside that travel id based on association
+       READ ENTITIES of zats_00_m_travel
+       ENTITY travel by \_Booking
+       from value #( for lv_travel_id in it_travel_id (
+                            travel_id = lv_travel_id
+                            %control-currency_code = if_abap_behv=>mk-on
+                            %control-flight_price = if_abap_behv=>mk-on
+                            %control-booking_id  = if_abap_behv=>mk-on
+       ) ) RESULT data(lt_booking_prices).
+       "3. loop at all bookings,
+       "3.1 check if currency of each booking is same as travel curr
+       "if same - just add
+       "if not same - currency conversion to Travel level curr
+       "then add
+       "return the total price at travel level
+       loop at lt_booking_prices into data(ls_booking)
+       group by ls_booking-travel_id into data(ls_travel_key).
+        assign lt_travel_calc[ key entity components travel_id = ls_travel_key ]
+        to FIELD-SYMBOL(<fs_travel>).
+        clear <fs_travel>-total_price.
+        loop at group ls_travel_key into data(ls_booking_result)
+        group by ls_booking_result-currency_code into data(lv_curr).
+
+            data(total_booking_price) = value /dmo/total_price( ).
+            loop at group lv_curr into data(ls_booking_line).
+                total_booking_price += ls_booking_line-flight_price.
+            ENDLOOP.
+            if lv_curr = <fs_travel>-currency_code.
+                <fs_travel>-total_price += total_booking_price.
+            else.
+                /dmo/cl_flight_amdp=>convert_currency(
+                  EXPORTING
+                    iv_amount               = total_booking_price
+                    iv_currency_code_source = lv_curr
+                    iv_currency_code_target = <fs_travel>-currency_code
+                    iv_exchange_rate_date   = cl_abap_context_info=>get_system_date(  )
+                  IMPORTING
+                    ev_amount               = data(converted_amount)
+                ).
+                <fs_travel>-total_price += converted_amount.
+
+            endif.
+
+        endloop.
+
+       ENDLOOP.
+       MODIFY ENTITIES of zats_00_m_travel
+       entity Travel
+       update from VALUE #( for travel in lt_travel_calc (
+                        travel_id = travel-travel_id
+                        total_price = travel-total_price
+                        %control-total_price = if_abap_behv=>mk-on
+       ) ).
+
+  ENDMETHOD.
+
+ENDCLASS.
